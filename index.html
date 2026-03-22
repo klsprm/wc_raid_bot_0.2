@@ -2088,6 +2088,34 @@ function buffIcon(label, size=14) {
 }
 
 const DEFAULT_PASSWORD = 'raidleader';
+
+// Auto-clear raid data when file changes (version = hash of script content)
+(function() {
+  try {
+    const scripts = document.querySelectorAll('script');
+    let src = '';
+    scripts.forEach(s => { src += s.textContent.slice(0, 500); });
+    let hash = 0;
+    for (let i = 0; i < src.length; i++) {
+      hash = ((hash << 5) - hash) + src.charCodeAt(i);
+      hash |= 0;
+    }
+    const version = 'v' + Math.abs(hash).toString(36);
+    const stored = localStorage.getItem('app_version');
+    if (stored !== version) {
+      const preserve = ['roster', 'admin_pw', 'raid_theme'];
+      const toDelete = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!preserve.includes(k)) toDelete.push(k);
+      }
+      toDelete.forEach(k => localStorage.removeItem(k));
+      localStorage.setItem('app_version', version);
+      window.__pickerState = {};
+      window.__specState = {};
+    }
+  } catch(e) {}
+})();
 const DEFAULT_ROSTER = [
   {name:'Grymt',cls:'Druid',role:'Main'},{name:'Romashka',cls:'Druid',role:'Main'},
   {name:'Showies',cls:'Druid',role:'Main'},{name:'Deeph',cls:'Druid',role:'Main'},
@@ -3389,8 +3417,8 @@ function renderMagtheridonAdmin(n) {
 function renderContextualFields(n, d) {
   const roster = getRoster();
   const active = d.active || [];
-  // Only use active raiders — if none selected yet, show empty dropdowns
-  const activeRoster = active.length > 0 ? filterByActive(roster, active) : [];
+  // Fall back to full roster if no active selection yet
+  const activeRoster = active.length > 0 ? filterByActive(roster, active) : roster;
 
   const pal = filterByClass(activeRoster, ['Paladin']);
   const dru = filterByClass(activeRoster, ['Druid']);
@@ -4209,7 +4237,7 @@ function renderMaulgarAdmin(n) {
   // Get active roster from Magtheridon same roster (shared roster)
   const magtActive = getActiveSelection(n);
   const allPlayers = getRoster();
-  const activeRoster = magtActive.length > 0 ? filterByActive(allPlayers, magtActive) : [];
+  const activeRoster = magtActive.length > 0 ? filterByActive(allPlayers, magtActive) : allPlayers;
 
   const dru = filterByClass(activeRoster, ['Druid']);
   const hun = filterByClass(activeRoster, ['Hunter']);
@@ -4401,7 +4429,7 @@ function renderViewerContent() {
   const roster    = getRoster();
   const magtD     = getMagtData(n);
   const active    = magtD.active || [];
-  const activeRoster = active.length > 0 ? filterByActive(roster, active) : [];
+  const activeRoster = active.length > 0 ? filterByActive(roster, active) : roster;
   const specs     = magtD.specs || {};
   const rosterGrid = buildRosterGrid(activeRoster, specs, magtD.debuffs);
 
@@ -4690,7 +4718,7 @@ function buildMagtheridonSection(n) {
   const d = getMagtData(n);
   const roster = getRoster();
   const active = d.active || [];
-  const activeRoster = active.length > 0 ? filterByActive(roster, active) : [];
+  const activeRoster = active.length > 0 ? filterByActive(roster, active) : roster;
 
   const tacticsImgSrc = d.tactics_b64 || d.tactics_url || '';
   const header = bossSectionHeader('⚔ Magtheridon\'s Lair', tacticsImgSrc, d.explanation);
